@@ -1,74 +1,71 @@
 var es = require('event-stream');
 var swig = require('swig');
-var clone = require('clone');
 var gutil = require('gulp-util');
-var ext = gutil.replaceExtension;
 var PluginError = gutil.PluginError;
-var fs = require('fs');
 var path = require('path');
+var extend = require('extend');
+var _ = require('lodash');
 
-function extend(target) {
-  'use strict';
-  var sources = [].slice.call(arguments, 1);
-  sources.forEach(function(source) {
-    for (var prop in source) {
-      if (source.hasOwnProperty(prop)) {
-        target[prop] = source[prop];
-      }
-    }
-  });
-  return target;
-}
+/**
+ * @typedef {{}}                GulpSwigConfig
+ * @property {Function}         [swigSetup]
+ * @property {SwigOpts}         [swigOptions]
+ * @property {{}}               [data]
+ * @property {string}           [mode=render] 'Render' or 'compile'
+ * @property {string}           [compileTemplate] If 'mode' == 'compile', then you can define template for export tpl-function string
+ */
+var defaults = {
+  swigSetup: function () {},
+  swigOptions: {},
+  data: {},
+  mode: 'render', // or 'compile'
+  compileTemplate: 'module.exports = <%= template %>;'
+};
 
+/**
+ * @param {GulpSwigConfig} options
+ * @returns {*}
+ */
 module.exports = function(options) {
   'use strict';
 
-  var opts = options ? clone(options) : {};
-  opts.ext = opts.ext || ".html";
+  options = (_.isPlainObject(options)) ? options : {};
 
-  if (opts.defaults) {
-    swig.setDefaults(opts.defaults);
+  /** @type {SwigOpts} swigOptions */
+  var swigOptions = extend({}, defaults, options.swigOptions || {});
+
+  /** @type {Object} swigInstance */
+  var swigInstance = new swig.Swig(swigOptions);
+
+  if (_.isFunction(options.swigSetup)) {
+    options.swigSetup(swigInstance);
   }
 
-  if (opts.setup && typeof opts.setup === 'function') {
-    opts.setup(swig);
+  var data = {};
+
+  if (_.isPlainObject(options.data)) {
+    data = options.data;
   }
 
-  function gulpswig(file, callback) {
+  var gulpSwig = function (file, callback) {
 
-    var data = opts.data || {}, jsonPath;
-
-    if (typeof data === 'function') {
-      data = data(file);
-    }
-
-    if (file.data) {
-      data = extend(file.data, data);
-    }
-
-    if (opts.load_json === true) {
-      if (opts.json_path) {
-        jsonPath = path.join(opts.json_path, ext(path.basename(file.path), '.json'));
-      } else {
-        jsonPath = ext(file.path, '.json');
-      }
-
-      // skip error if json file doesn't exist
-      try {
-        data = extend(JSON.parse(fs.readFileSync(jsonPath)), data);
-      } catch (err) {}
+    if (_.isPlainObject(file.data)) {
+      data = extend({}, file.data, data);
     }
 
     try {
-      var compiled;
+      var result = '',
+          tplFunc = swigInstance.compile(String(file.contents), {filename: file.path}),
+          tplFuncString = tplFunc.toString();
 
-      if (opts.precompile) {
-        var preTpl = swig.precompile(String(file.contents), {filename: file.path});
-        var templateText = preTpl.tpl.toString();
-
-        if (typeof opts.precompile === "string") {
-          var gutilOpts = {
-            template: templateText,
+      if (options.mode != 'compile') {
+        // render
+        result = tplFunc(data);
+      } else {
+        // compile
+        if (_.isString(options.compileTemplate) && options.compileTemplate) {
+          var compileTemplateOpts = {
+            template: tplFuncString,
             file: {
               path: file.path,
               name: path.basename(file.path),
@@ -77,26 +74,20 @@ module.exports = function(options) {
             }
           };
 
-          compiled = gutil.template(opts.precompile, gutilOpts);
-        }
-        else {
-          compiled = templateText;
+          result = gutil.template(options.compileTemplate, compileTemplateOpts);
+        } else {
+          result = tplFuncString;
         }
       }
-      else {
-        var tpl = swig.compile(String(file.contents), {filename: file.path});
-        compiled = tpl(data);
-      }
 
-      file.path = ext(file.path, opts.ext);
-      file.contents = new Buffer(compiled);
-
+      file.contents = new Buffer(result);
       callback(null, file);
+
     } catch (err) {
       callback(new PluginError('gulp-swig', err));
       callback();
     }
-  }
+  };
 
-  return es.map(gulpswig);
+  return es.map(gulpSwig);
 };

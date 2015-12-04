@@ -1,30 +1,28 @@
 {
-  "name": "gulp-swig",
-  "version": "0.7.4",
+  "name": "gulp-swig-compiler-renderer",
+  "version": "0.0.1",
   "description": "Swig Plugin for Gulp",
   "keywords": [
-    "gulpplugin",
-    "swig"
+    "gulp",
+    "swig",
+    "template",
+    "render",
+    "renderer",
+    "compiler",
+    "compile"
   ],
-  "repository": "https://github.com/colynb/gulp-swig",
-  "author": "Colyn Brown <colyn.brown@gmail.com>",
+  "repository": "https://github.com/antixrist/gulp-swig-compiler-renderer",
+  "author": "antixrist <ya.antixrist@gmail.com>",
   "dependencies": {
     "event-stream": "~3.0.15",
-    "clone": "~0.1.9",
+    "extend": "^3.0.0",
     "gulp-util": "~2.2.14",
-    "swig": "1.4.*",
-    "gulp": "~3.5.1"
+    "lodash": "^3.10.1",
+    "swig": "1.4.*"
   },
   "main": "index.js",
   "engines": {
     "node": ">= 0.4.0"
   },
-  "scripts": {
-    "test": "mocha"
-  },
-  "devDependencies": {
-    "mocha": "~1.12.0",
-    "chai": "~1.7.2",
-    "swig-marked": "~0.0.1"
-  }
+  "devDependencies": {}
 }
